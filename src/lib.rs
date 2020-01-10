@@ -1,7 +1,7 @@
 #![deny(missing_debug_implementations, missing_docs)] // kcov-ignore
 #![recursion_limit = "128"]
 
-//! Provides a proc macro derive to produce structs from enum variants.
+//! Proc macro derive to generate structs from enum variants.
 //!
 //! This is a poor-man's implementation of <https://github.com/rust-lang/rfcs/pull/2593>.
 //!

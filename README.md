@@ -5,7 +5,7 @@
 
 # Enum Variant Type
 
-Provides a proc macro derive to produce structs from enum variants.
+Proc macro derive to generate structs from enum variants.
 
 This is a poor-man's implementation of <https://github.com/rust-lang/rfcs/pull/2593>.
 
@@ -17,8 +17,10 @@ use enum_variant_type::EnumVariantType;
 #[derive(EnumVariantType)]
 pub enum MyEnum {
     /// Unit variant.
+    #[evt_attrs(derive(Clone, Copy, Debug, PartialEq))]
     Unit,
     /// Tuple variant.
+    #[evt_attrs(derive(Debug))]
     Tuple(u32, u64),
     /// Struct variant.
     Struct {
@@ -46,7 +48,7 @@ use std::convert::TryFrom;
 # }
 #
 /// Unit variant.
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Unit;
 
 /// Tuple variant.
@@ -54,29 +56,14 @@ pub struct Unit;
 pub struct Tuple(pub u32, pub u64);
 
 /// Struct variant.
-#[derive(Debug)]
 pub struct Struct {
     pub field_0: u32,
     pub field_1: u64,
 }
 
 impl From<Unit> for MyEnum {
-    fn from(enum_variant_type: Unit) -> Self {
+    fn from(variant_struct: Unit) -> Self {
         MyEnum::Unit
-    }
-}
-
-impl From<Tuple> for MyEnum {
-    fn from(enum_variant_type: Tuple) -> Self {
-        let Tuple(_0, _1) = enum_variant_type;
-        MyEnum::Tuple(_0, _1)
-    }
-}
-
-impl From<Struct> for MyEnum {
-    fn from(enum_variant_type: Struct) -> Self {
-        let Struct { field_0, field_1 } = enum_variant_type;
-        MyEnum::Struct { field_0, field_1 }
     }
 }
 
@@ -91,6 +78,13 @@ impl TryFrom<MyEnum> for Unit {
     }
 }
 
+impl From<Tuple> for MyEnum {
+    fn from(variant_struct: Tuple) -> Self {
+        let Tuple(_0, _1) = variant_struct;
+        MyEnum::Tuple(_0, _1)
+    }
+}
+
 impl TryFrom<MyEnum> for Tuple {
     type Error = MyEnum;
     fn try_from(enum_variant: MyEnum) -> Result<Self, Self::Error> {
@@ -99,6 +93,13 @@ impl TryFrom<MyEnum> for Tuple {
         } else {
             Err(enum_variant)
         }
+    }
+}
+
+impl From<Struct> for MyEnum {
+    fn from(variant_struct: Struct) -> Self {
+        let Struct { field_0, field_1 } = variant_struct;
+        MyEnum::Struct { field_0, field_1 }
     }
 }
 
