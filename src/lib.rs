@@ -13,8 +13,10 @@
 //! #[derive(EnumVariantType)]
 //! pub enum MyEnum {
 //!     /// Unit variant.
+//!     #[evt_attrs(derive(Clone, Copy, Debug, PartialEq))]
 //!     Unit,
 //!     /// Tuple variant.
+//!     #[evt_attrs(derive(Debug))]
 //!     Tuple(u32, u64),
 //!     /// Struct variant.
 //!     Struct {
@@ -42,7 +44,7 @@
 //! # }
 //! #
 //! /// Unit variant.
-//! #[derive(Debug)]
+//! #[derive(Clone, Copy, Debug, PartialEq)]
 //! pub struct Unit;
 //!
 //! /// Tuple variant.
@@ -50,29 +52,14 @@
 //! pub struct Tuple(pub u32, pub u64);
 //!
 //! /// Struct variant.
-//! #[derive(Debug)]
 //! pub struct Struct {
 //!     pub field_0: u32,
 //!     pub field_1: u64,
 //! }
 //!
 //! impl From<Unit> for MyEnum {
-//!     fn from(enum_variant_type: Unit) -> Self {
+//!     fn from(variant_struct: Unit) -> Self {
 //!         MyEnum::Unit
-//!     }
-//! }
-//!
-//! impl From<Tuple> for MyEnum {
-//!     fn from(enum_variant_type: Tuple) -> Self {
-//!         let Tuple(_0, _1) = enum_variant_type;
-//!         MyEnum::Tuple(_0, _1)
-//!     }
-//! }
-//!
-//! impl From<Struct> for MyEnum {
-//!     fn from(enum_variant_type: Struct) -> Self {
-//!         let Struct { field_0, field_1 } = enum_variant_type;
-//!         MyEnum::Struct { field_0, field_1 }
 //!     }
 //! }
 //!
@@ -87,6 +74,13 @@
 //!     }
 //! }
 //!
+//! impl From<Tuple> for MyEnum {
+//!     fn from(variant_struct: Tuple) -> Self {
+//!         let Tuple(_0, _1) = variant_struct;
+//!         MyEnum::Tuple(_0, _1)
+//!     }
+//! }
+//!
 //! impl TryFrom<MyEnum> for Tuple {
 //!     type Error = MyEnum;
 //!     fn try_from(enum_variant: MyEnum) -> Result<Self, Self::Error> {
@@ -95,6 +89,13 @@
 //!         } else {
 //!             Err(enum_variant)
 //!         }
+//!     }
+//! }
+//!
+//! impl From<Struct> for MyEnum {
+//!     fn from(variant_struct: Struct) -> Self {
+//!         let Struct { field_0, field_1 } = variant_struct;
+//!         MyEnum::Struct { field_0, field_1 }
 //!     }
 //! }
 //!
@@ -126,6 +127,13 @@ const ATTRIBUTES_TO_COPY: &[&str] = &["doc", "cfg", "allow", "deny"];
 #[proc_macro_derive(EnumVariantType, attributes(evt_attrs))]
 pub fn enum_variant_type(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
+
+    // Need to do this, otherwise we can't unit test the input.
+    enum_variant_type_impl(ast).into()
+}
+
+#[inline]
+fn enum_variant_type_impl(ast: DeriveInput) -> proc_macro2::TokenStream {
     let enum_name = &ast.ident;
     let vis = &ast.vis;
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
@@ -152,7 +160,7 @@ pub fn enum_variant_type(input: TokenStream) -> TokenStream {
                         if let Meta::List(meta_list) = meta {
                             Some(meta_list.nested)
                         } else {
-                            None
+                            None // kcov-ignore
                         }
                     });
                     if let Some(variant_struct_attrs) = variant_struct_attrs {
@@ -241,13 +249,113 @@ pub fn enum_variant_type(input: TokenStream) -> TokenStream {
         }
     });
     struct_declarations.extend(struct_declarations_iter);
-    struct_declarations.into()
+    struct_declarations
 }
 
 fn data_enum(ast: &DeriveInput) -> &DataEnum {
     if let Data::Enum(data_enum) = &ast.data {
         data_enum
     } else {
-        panic!("`EnumVariantType` derive can only be used on an enum.");
+        panic!("`EnumVariantType` derive can only be used on an enum."); // kcov-ignore
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+    use quote::quote;
+    use syn::{parse_quote, DeriveInput};
+
+    use super::enum_variant_type_impl;
+
+    #[test]
+    fn generates_correct_tokens_for_basic_enum() {
+        let ast: DeriveInput = parse_quote! {
+            pub enum MyEnum {
+                /// Unit variant.
+                #[evt_attrs(derive(Clone, Copy, Debug, PartialEq))]
+                Unit,
+                /// Tuple variant.
+                #[evt_attrs(derive(Debug))]
+                Tuple(u32, u64),
+                /// Struct variant.
+                Struct {
+                    field_0: u32,
+                    field_1: u64,
+                },
+            }
+        };
+
+        let actual_tokens = enum_variant_type_impl(ast);
+        let expected_tokens = quote! {
+            /// Unit variant.
+            #[derive(Clone, Copy, Debug, PartialEq)]
+            pub struct Unit;
+
+            impl std::convert::From<Unit> for MyEnum {
+                fn from(variant_struct: Unit) -> Self {
+                    MyEnum::Unit
+                }
+            }
+
+            impl std::convert::TryFrom<MyEnum> for Unit {
+                type Error = MyEnum;
+                fn try_from(enum_variant: MyEnum) -> Result<Self, Self::Error> {
+                    if let MyEnum::Unit = enum_variant {
+                        std::result::Result::Ok(Unit)
+                    } else {
+                        std::result::Result::Err(enum_variant)
+                    }
+                }
+            }
+
+            /// Tuple variant.
+            #[derive(Debug)]
+            pub struct Tuple(pub u32, pub u64,);
+
+            impl std::convert::From<Tuple> for MyEnum {
+                fn from(variant_struct: Tuple) -> Self {
+                    let Tuple(_0, _1,) = variant_struct;
+                    MyEnum::Tuple(_0, _1,)
+                }
+            }
+
+            impl std::convert::TryFrom<MyEnum> for Tuple {
+                type Error = MyEnum;
+                fn try_from(enum_variant: MyEnum) -> Result<Self, Self::Error> {
+                    if let MyEnum::Tuple(_0, _1,) = enum_variant {
+                        std::result::Result::Ok(Tuple(_0, _1,))
+                    } else {
+                        std::result::Result::Err(enum_variant)
+                    }
+                }
+            }
+
+            /// Struct variant.
+            pub struct Struct {
+                pub field_0: u32,
+                pub field_1: u64,
+            }
+
+            impl std::convert::From<Struct> for MyEnum {
+                fn from(variant_struct: Struct) -> Self {
+                    let Struct { field_0, field_1, } = variant_struct;
+                    MyEnum::Struct { field_0, field_1, }
+                }
+            }
+
+            impl std::convert::TryFrom<MyEnum> for Struct {
+                type Error = MyEnum;
+                fn try_from(enum_variant: MyEnum) -> Result<Self, Self::Error> {
+                    if let MyEnum::Struct { field_0, field_1, } = enum_variant {
+                        std::result::Result::Ok(Struct { field_0, field_1, })
+                    } else {
+                        std::result::Result::Err(enum_variant)
+                    }
+                }
+            }
+        };
+
+        assert_eq!(expected_tokens.to_string(), actual_tokens.to_string());
     }
 }

@@ -1,5 +1,3 @@
-#![cfg(feature = "derive")]
-
 use std::convert::TryFrom;
 
 use enum_variant_type::EnumVariantType;
