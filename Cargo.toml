@@ -5,6 +5,7 @@ authors = ["Azriel Hoh <mail@azriel.im>"]
 edition = "2018"
 description = "Generates types for "
 repository = "https://github.com/azriel91/enum_variant_type"
+documentation = "https://docs.rs/enum_variant_type/"
 readme = "README.md"
 keywords = ["typename", "type", "name"]
 license = "MIT OR Apache-2.0"
