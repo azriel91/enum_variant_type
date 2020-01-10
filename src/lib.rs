@@ -8,50 +8,57 @@
 //! # Examples
 //!
 //! ```rust,edition2018
+//! use std::convert::TryFrom;
+//!
 //! use enum_variant_type::EnumVariantType;
 //!
-//! #[derive(EnumVariantType)]
+//! #[derive(Debug, EnumVariantType, PartialEq)]
 //! pub enum MyEnum {
 //!     /// Unit variant.
 //!     #[evt_attrs(derive(Clone, Copy, Debug, PartialEq))]
 //!     Unit,
 //!     /// Tuple variant.
-//!     #[evt_attrs(derive(Debug))]
+//!     #[evt_attrs(derive(Debug, PartialEq))]
 //!     Tuple(u32, u64),
 //!     /// Struct variant.
+//!     #[evt_attrs(derive(Debug))]
 //!     Struct {
 //!         field_0: u32,
 //!         field_1: u64,
 //!     },
 //! }
+//!
+//! // Now you can do the following:
+//! let unit: Unit = Unit::try_from(MyEnum::Unit).unwrap();
+//! let tuple: Tuple = Tuple::try_from(MyEnum::Tuple(12, 34)).unwrap();
+//! let named: Struct = Struct::try_from(MyEnum::Struct { field_0: 12, field_1: 34 }).unwrap();
+//!
+//! let enum_unit = MyEnum::from(unit);
+//! let enum_tuple = MyEnum::from(tuple);
+//! let enum_struct = MyEnum::from(named);
+//!
+//! // If the enum variant doesn't match the variant type, then the original variant is returned in
+//! // the `Result`'s `Err` variant.
+//! assert_eq!(Err(MyEnum::Unit), Tuple::try_from(MyEnum::Unit));
 //! ```
 //!
-//! Generates:
+//! <details>
+//!
+//! <summary>Generated code</summary>
 //!
 //! ```rust,edition2018
 //! use std::convert::TryFrom;
 //!
-//! # pub enum MyEnum {
-//! #     /// Unit variant.
-//! #     Unit,
-//! #     /// Tuple variant.
-//! #     Tuple(u32, u64),
-//! #     /// Struct variant.
-//! #     Struct {
-//! #         field_0: u32,
-//! #         field_1: u64,
-//! #     },
-//! # }
-//! #
 //! /// Unit variant.
 //! #[derive(Clone, Copy, Debug, PartialEq)]
 //! pub struct Unit;
 //!
 //! /// Tuple variant.
-//! #[derive(Debug)]
+//! #[derive(Debug, PartialEq)]
 //! pub struct Tuple(pub u32, pub u64);
 //!
 //! /// Struct variant.
+//! #[derive(Debug)]
 //! pub struct Struct {
 //!     pub field_0: u32,
 //!     pub field_1: u64,
@@ -109,7 +116,22 @@
 //!         }
 //!     }
 //! }
+//!
+//! # pub enum MyEnum {
+//! #     /// Unit variant.
+//! #     Unit,
+//! #     /// Tuple variant.
+//! #     Tuple(u32, u64),
+//! #     /// Struct variant.
+//! #     Struct {
+//! #         field_0: u32,
+//! #         field_1: u64,
+//! #     },
+//! # }
+//! #
 //! ```
+//!
+//! </details>
 
 extern crate proc_macro;
 
