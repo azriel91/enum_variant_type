@@ -1,0 +1,25 @@
+[package]
+name = "enum_variant_type"
+version = "0.1.0"
+authors = ["Azriel Hoh <mail@azriel.im>"]
+edition = "2018"
+description = "Generates types for "
+repository = "https://github.com/azriel91/enum_variant_type"
+readme = "README.md"
+keywords = ["typename", "type", "name"]
+license = "MIT OR Apache-2.0"
+
+[lib]
+path = "src/lib.rs"
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1.0.7"
+proc_macro_roids = "0.6.1"
+quote = "1.0.2"
+syn = { version = "1.0.13", features = ["extra-traits", "visit"] }
+
+[badges]
+appveyor = { repository = "azriel91/enum_variant_type" }
+travis-ci = { repository = "azriel91/enum_variant_type" }
+codecov = { repository = "azriel91/enum_variant_type" }
