@@ -15,17 +15,20 @@
 //! #[derive(Debug, EnumVariantType, PartialEq)]
 //! pub enum MyEnum {
 //!     /// Unit variant.
-//!     #[evt_attrs(derive(Clone, Copy, Debug, PartialEq))]
+//!     #[evt(derive(Clone, Copy, Debug, PartialEq))]
 //!     Unit,
 //!     /// Tuple variant.
-//!     #[evt_attrs(derive(Debug, PartialEq))]
+//!     #[evt(derive(Debug, PartialEq))]
 //!     Tuple(u32, u64),
 //!     /// Struct variant.
-//!     #[evt_attrs(derive(Debug))]
+//!     #[evt(derive(Debug))]
 //!     Struct {
 //!         field_0: u32,
 //!         field_1: u64,
 //!     },
+//!     /// Skipped variant.
+//!     #[evt(skip)]
+//!     Skipped,
 //! }
 //!
 //! // Now you can do the following:
@@ -136,9 +139,11 @@
 extern crate proc_macro;
 
 use proc_macro::TokenStream;
-use proc_macro_roids::FieldsExt;
+use proc_macro_roids::{namespace_parameters, FieldsExt};
 use quote::quote;
-use syn::{parse_macro_input, Attribute, Data, DataEnum, DeriveInput, Field, Fields, Meta};
+use syn::{
+    parse_macro_input, parse_quote, Attribute, Data, DataEnum, DeriveInput, Field, Fields, Path,
+};
 
 /// Attributes that should be copied across.
 const ATTRIBUTES_TO_COPY: &[&str] = &["doc", "cfg", "allow", "deny"];
@@ -146,7 +151,7 @@ const ATTRIBUTES_TO_COPY: &[&str] = &["doc", "cfg", "allow", "deny"];
 /// Derives a struct for each enum variant.
 ///
 /// Struct fields including their attributes are copied over.
-#[proc_macro_derive(EnumVariantType, attributes(evt_attrs))]
+#[proc_macro_derive(EnumVariantType, attributes(evt))]
 pub fn enum_variant_type(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
@@ -163,7 +168,13 @@ fn enum_variant_type_impl(ast: DeriveInput) -> proc_macro2::TokenStream {
     let variants = &data_enum.variants;
 
     let mut struct_declarations = proc_macro2::TokenStream::new();
-    let struct_declarations_iter = variants.iter().map(|variant| {
+
+    let ns: Path = parse_quote!(evt);
+    let skip: Path = parse_quote!(skip);
+    let struct_declarations_iter = variants.iter()
+        .filter(|variant| !proc_macro_roids::contains_tag(&variant.attrs,  &ns, &skip))
+        .map(|variant| {
+
         let variant_name = &variant.ident;
         let attrs_to_copy = variant
             .attrs
@@ -174,25 +185,17 @@ fn enum_variant_type_impl(ast: DeriveInput) -> proc_macro2::TokenStream {
                     .any(|attr_to_copy| attribute.path.is_ident(attr_to_copy))
             })
             .collect::<Vec<&Attribute>>();
-        let variant_struct_attrs = variant.attrs.iter().fold(
-            proc_macro2::TokenStream::new(),
-            |mut attrs_tokens, attribute| {
-                if attribute.path.is_ident("evt_attrs") {
-                    let variant_struct_attrs = attribute.parse_meta().ok().and_then(|meta| {
-                        if let Meta::List(meta_list) = meta {
-                            Some(meta_list.nested)
-                        } else {
-                            None // kcov-ignore
-                        }
-                    });
-                    if let Some(variant_struct_attrs) = variant_struct_attrs {
-                        attrs_tokens.extend(quote!(#[#variant_struct_attrs]));
-                    }
-                }
 
-                attrs_tokens
-            },
-        );
+        let evt_meta_lists = namespace_parameters(&variant.attrs, &ns);
+        let variant_struct_attrs = evt_meta_lists
+            .into_iter()
+            .fold(
+                proc_macro2::TokenStream::new(),
+                |mut attrs_tokens, variant_struct_attr| {
+                    attrs_tokens.extend(quote!(#[#variant_struct_attr]));
+                    attrs_tokens
+                },
+            );
         let variant_fields = &variant.fields;
 
         // Need to attach visibility modifier to fields.
@@ -295,10 +298,10 @@ mod tests {
         let ast: DeriveInput = parse_quote! {
             pub enum MyEnum {
                 /// Unit variant.
-                #[evt_attrs(derive(Clone, Copy, Debug, PartialEq))]
+                #[evt(derive(Clone, Copy, Debug, PartialEq))]
                 Unit,
                 /// Tuple variant.
-                #[evt_attrs(derive(Debug))]
+                #[evt(derive(Debug))]
                 Tuple(u32, u64),
                 /// Struct variant.
                 Struct {
@@ -371,6 +374,46 @@ mod tests {
                 fn try_from(enum_variant: MyEnum) -> Result<Self, Self::Error> {
                     if let MyEnum::Struct { field_0, field_1, } = enum_variant {
                         std::result::Result::Ok(Struct { field_0, field_1, })
+                    } else {
+                        std::result::Result::Err(enum_variant)
+                    }
+                }
+            }
+        };
+
+        assert_eq!(expected_tokens.to_string(), actual_tokens.to_string());
+    }
+
+    #[test]
+    fn skips_variants_marked_with_evt_skip() {
+        let ast: DeriveInput = parse_quote! {
+            pub enum MyEnum {
+                /// Unit variant.
+                #[evt(derive(Clone, Copy, Debug, PartialEq))]
+                Unit,
+                /// Skipped variant.
+                #[evt(skip)]
+                UnitSkipped,
+            }
+        };
+
+        let actual_tokens = enum_variant_type_impl(ast);
+        let expected_tokens = quote! {
+            /// Unit variant.
+            #[derive(Clone, Copy, Debug, PartialEq)]
+            pub struct Unit;
+
+            impl std::convert::From<Unit> for MyEnum {
+                fn from(variant_struct: Unit) -> Self {
+                    MyEnum::Unit
+                }
+            }
+
+            impl std::convert::TryFrom<MyEnum> for Unit {
+                type Error = MyEnum;
+                fn try_from(enum_variant: MyEnum) -> Result<Self, Self::Error> {
+                    if let MyEnum::Unit = enum_variant {
+                        std::result::Result::Ok(Unit)
                     } else {
                         std::result::Result::Err(enum_variant)
                     }

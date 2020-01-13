@@ -34,7 +34,7 @@ after_success: |
     make install DESTDIR=../../kcov-build &&
     cd ../.. &&
     rm -rf kcov-master &&
-    export PATH="${PATH}:$(pwd)/kcov-build/usr/local/bin/"
+    export PATH="${PATH}:$(pwd)/kcov-build/usr/local/bin/" &&
     ./scripts/coverage.sh &&
     bash <(curl -s https://codecov.io/bash) &&
     echo "Uploaded code coverage"

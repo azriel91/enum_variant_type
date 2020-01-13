@@ -5,13 +5,13 @@ use enum_variant_type::EnumVariantType;
 #[derive(Debug, EnumVariantType, PartialEq)]
 pub enum MyEnum {
     /// Unit variant.
-    #[evt_attrs(derive(Clone, Copy, Debug, PartialEq))]
+    #[evt(derive(Clone, Copy, Debug, PartialEq))]
     Unit,
     /// Tuple variant.
-    #[evt_attrs(derive(Clone, Copy, Debug, PartialEq))]
+    #[evt(derive(Clone, Copy, Debug, PartialEq))]
     Tuple(u32, u64),
     /// Struct variant.
-    #[evt_attrs(derive(Clone, Copy, Debug, PartialEq))]
+    #[evt(derive(Clone, Copy, Debug, PartialEq))]
     Struct { field_0: u32, field_1: u64 },
 }
 
