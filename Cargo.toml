@@ -1,13 +1,13 @@
 [package]
 name = "enum_variant_type"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Azriel Hoh <mail@azriel.im>"]
 edition = "2018"
-description = "Generates types for "
+description = "Generates types for each enum variant and conversion trait impls."
 repository = "https://github.com/azriel91/enum_variant_type"
 documentation = "https://docs.rs/enum_variant_type/"
 readme = "README.md"
-keywords = ["typename", "type", "name"]
+keywords = ["enum", "variant", "type"]
 license = "MIT OR Apache-2.0"
 
 [lib]

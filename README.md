@@ -9,30 +9,37 @@ Proc macro derive to generate structs from enum variants.
 
 This is a poor-man's implementation of <https://github.com/rust-lang/rfcs/pull/2593>.
 
+```toml
+[dependencies]
+enum_variant_type = "0.2.0"
+```
+
 ## Examples
 
 ```rust,edition2018
-use std::convert::TryFrom;
-
 use enum_variant_type::EnumVariantType;
 
 #[derive(Debug, EnumVariantType, PartialEq)]
 pub enum MyEnum {
     /// Unit variant.
-    #[evt_attrs(derive(Clone, Copy, Debug, PartialEq))]
+    #[evt(derive(Clone, Copy, Debug, PartialEq))]
     Unit,
     /// Tuple variant.
-    #[evt_attrs(derive(Debug, PartialEq))]
+    #[evt(derive(Debug, PartialEq))]
     Tuple(u32, u64),
     /// Struct variant.
-    #[evt_attrs(derive(Debug))]
+    #[evt(derive(Debug))]
     Struct {
         field_0: u32,
         field_1: u64,
     },
+    /// Skipped variant.
+    #[evt(skip)]
+    Skipped,
 }
 
 // Now you can do the following:
+use std::convert::TryFrom;
 let unit: Unit = Unit::try_from(MyEnum::Unit).unwrap();
 let tuple: Tuple = Tuple::try_from(MyEnum::Tuple(12, 34)).unwrap();
 let named: Struct = Struct::try_from(MyEnum::Struct { field_0: 12, field_1: 34 }).unwrap();

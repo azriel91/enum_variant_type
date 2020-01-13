@@ -5,11 +5,14 @@
 //!
 //! This is a poor-man's implementation of <https://github.com/rust-lang/rfcs/pull/2593>.
 //!
+//! ```toml
+//! [dependencies]
+//! enum_variant_type = "0.2.0"
+//! ```
+//!
 //! # Examples
 //!
 //! ```rust,edition2018
-//! use std::convert::TryFrom;
-//!
 //! use enum_variant_type::EnumVariantType;
 //!
 //! #[derive(Debug, EnumVariantType, PartialEq)]
@@ -32,6 +35,7 @@
 //! }
 //!
 //! // Now you can do the following:
+//! use std::convert::TryFrom;
 //! let unit: Unit = Unit::try_from(MyEnum::Unit).unwrap();
 //! let tuple: Tuple = Tuple::try_from(MyEnum::Tuple(12, 34)).unwrap();
 //! let named: Struct = Struct::try_from(MyEnum::Struct { field_0: 12, field_1: 34 }).unwrap();

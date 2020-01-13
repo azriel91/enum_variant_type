@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 (2020-01-13)
 
 * Allow variants to be skipped using `#[evt(skip)]`.
 * ***Breaking:*** `#[evt(..)]` specifies the attributes to attach to the generated type (previously `#[evt_attr(..)]`).
