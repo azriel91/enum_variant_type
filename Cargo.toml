@@ -15,10 +15,10 @@ path = "src/lib.rs"
 proc-macro = true
 
 [dependencies]
-proc-macro2 = "1.0.7"
+proc-macro2 = "1.0.26"
 proc_macro_roids = "0.7.0"
-quote = "1.0.2"
-syn = { version = "1.0.13", features = ["extra-traits", "visit"] }
+quote = "1.0.9"
+syn = { version = "1.0.69", features = ["extra-traits", "visit"] }
 
 [dev-dependencies]
 pretty_assertions = "0.6.1"
