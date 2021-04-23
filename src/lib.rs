@@ -1,4 +1,5 @@
 #![deny(missing_debug_implementations, missing_docs)] // kcov-ignore
+#![no_std]
 #![recursion_limit = "128"]
 
 //! Proc macro derive to generate structs from enum variants.
@@ -35,7 +36,7 @@
 //! }
 //!
 //! // Now you can do the following:
-//! use std::convert::TryFrom;
+//! use core::convert::TryFrom;
 //! let unit: Unit = Unit::try_from(MyEnum::Unit).unwrap();
 //! let tuple: Tuple = Tuple::try_from(MyEnum::Tuple(12, 34)).unwrap();
 //! let named: Struct = Struct::try_from(MyEnum::Struct { field_0: 12, field_1: 34 }).unwrap();
@@ -54,7 +55,7 @@
 //! <summary>Generated code</summary>
 //!
 //! ```rust,edition2018
-//! use std::convert::TryFrom;
+//! use core::convert::TryFrom;
 //!
 //! /// Unit variant.
 //! #[derive(Clone, Copy, Debug, PartialEq)]
@@ -140,8 +141,10 @@
 //!
 //! </details>
 
+extern crate alloc;
 extern crate proc_macro;
 
+use alloc::vec::Vec;
 use proc_macro::TokenStream;
 use proc_macro_roids::{namespace_parameters, FieldsExt};
 use quote::quote;
@@ -238,7 +241,7 @@ fn enum_variant_type_impl(ast: DeriveInput) -> proc_macro2::TokenStream {
             }
         };
         let impl_from_variant_for_enum = quote! {
-            impl #impl_generics std::convert::From<#variant_name #ty_generics>
+            impl #impl_generics core::convert::From<#variant_name #ty_generics>
                 for #enum_name #ty_generics
             #where_clause {
                 fn from(variant_struct: #variant_name #ty_generics) -> Self {
@@ -251,7 +254,7 @@ fn enum_variant_type_impl(ast: DeriveInput) -> proc_macro2::TokenStream {
         };
 
         let impl_try_from_enum_for_variant = quote! {
-            impl #impl_generics std::convert::TryFrom<#enum_name #ty_generics>
+            impl #impl_generics core::convert::TryFrom<#enum_name #ty_generics>
                 for #variant_name #ty_generics
             #where_clause {
                 type Error = #enum_name #ty_generics;
@@ -259,9 +262,9 @@ fn enum_variant_type_impl(ast: DeriveInput) -> proc_macro2::TokenStream {
                 fn try_from(enum_variant: #enum_name #ty_generics) -> Result<Self, Self::Error> {
                     // Deconstruct the variant.
                     if let #enum_name::#variant_name #construction_form = enum_variant {
-                        std::result::Result::Ok(#variant_name #construction_form)
+                        core::result::Result::Ok(#variant_name #construction_form)
                     } else {
-                        std::result::Result::Err(enum_variant)
+                        core::result::Result::Err(enum_variant)
                     }
                 }
             }
@@ -291,6 +294,9 @@ fn data_enum(ast: &DeriveInput) -> &DataEnum {
 
 #[cfg(test)]
 mod tests {
+    extern crate alloc;
+
+    use alloc::string::ToString;
     use pretty_assertions::assert_eq;
     use quote::quote;
     use syn::{parse_quote, DeriveInput};
@@ -321,19 +327,19 @@ mod tests {
             #[derive(Clone, Copy, Debug, PartialEq)]
             pub struct Unit;
 
-            impl std::convert::From<Unit> for MyEnum {
+            impl core::convert::From<Unit> for MyEnum {
                 fn from(variant_struct: Unit) -> Self {
                     MyEnum::Unit
                 }
             }
 
-            impl std::convert::TryFrom<MyEnum> for Unit {
+            impl core::convert::TryFrom<MyEnum> for Unit {
                 type Error = MyEnum;
                 fn try_from(enum_variant: MyEnum) -> Result<Self, Self::Error> {
                     if let MyEnum::Unit = enum_variant {
-                        std::result::Result::Ok(Unit)
+                        core::result::Result::Ok(Unit)
                     } else {
-                        std::result::Result::Err(enum_variant)
+                        core::result::Result::Err(enum_variant)
                     }
                 }
             }
@@ -342,20 +348,20 @@ mod tests {
             #[derive(Debug)]
             pub struct Tuple(pub u32, pub u64,);
 
-            impl std::convert::From<Tuple> for MyEnum {
+            impl core::convert::From<Tuple> for MyEnum {
                 fn from(variant_struct: Tuple) -> Self {
                     let Tuple(_0, _1,) = variant_struct;
                     MyEnum::Tuple(_0, _1,)
                 }
             }
 
-            impl std::convert::TryFrom<MyEnum> for Tuple {
+            impl core::convert::TryFrom<MyEnum> for Tuple {
                 type Error = MyEnum;
                 fn try_from(enum_variant: MyEnum) -> Result<Self, Self::Error> {
                     if let MyEnum::Tuple(_0, _1,) = enum_variant {
-                        std::result::Result::Ok(Tuple(_0, _1,))
+                        core::result::Result::Ok(Tuple(_0, _1,))
                     } else {
-                        std::result::Result::Err(enum_variant)
+                        core::result::Result::Err(enum_variant)
                     }
                 }
             }
@@ -366,20 +372,20 @@ mod tests {
                 pub field_1: u64,
             }
 
-            impl std::convert::From<Struct> for MyEnum {
+            impl core::convert::From<Struct> for MyEnum {
                 fn from(variant_struct: Struct) -> Self {
                     let Struct { field_0, field_1, } = variant_struct;
                     MyEnum::Struct { field_0, field_1, }
                 }
             }
 
-            impl std::convert::TryFrom<MyEnum> for Struct {
+            impl core::convert::TryFrom<MyEnum> for Struct {
                 type Error = MyEnum;
                 fn try_from(enum_variant: MyEnum) -> Result<Self, Self::Error> {
                     if let MyEnum::Struct { field_0, field_1, } = enum_variant {
-                        std::result::Result::Ok(Struct { field_0, field_1, })
+                        core::result::Result::Ok(Struct { field_0, field_1, })
                     } else {
-                        std::result::Result::Err(enum_variant)
+                        core::result::Result::Err(enum_variant)
                     }
                 }
             }
@@ -407,19 +413,19 @@ mod tests {
             #[derive(Clone, Copy, Debug, PartialEq)]
             pub struct Unit;
 
-            impl std::convert::From<Unit> for MyEnum {
+            impl core::convert::From<Unit> for MyEnum {
                 fn from(variant_struct: Unit) -> Self {
                     MyEnum::Unit
                 }
             }
 
-            impl std::convert::TryFrom<MyEnum> for Unit {
+            impl core::convert::TryFrom<MyEnum> for Unit {
                 type Error = MyEnum;
                 fn try_from(enum_variant: MyEnum) -> Result<Self, Self::Error> {
                     if let MyEnum::Unit = enum_variant {
-                        std::result::Result::Ok(Unit)
+                        core::result::Result::Ok(Unit)
                     } else {
-                        std::result::Result::Err(enum_variant)
+                        core::result::Result::Err(enum_variant)
                     }
                 }
             }
