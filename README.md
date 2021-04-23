@@ -39,7 +39,7 @@ pub enum MyEnum {
 }
 
 // Now you can do the following:
-use std::convert::TryFrom;
+use core::convert::TryFrom;
 let unit: Unit = Unit::try_from(MyEnum::Unit).unwrap();
 let tuple: Tuple = Tuple::try_from(MyEnum::Tuple(12, 34)).unwrap();
 let named: Struct = Struct::try_from(MyEnum::Struct { field_0: 12, field_1: 34 }).unwrap();
@@ -58,7 +58,7 @@ assert_eq!(Err(MyEnum::Unit), Tuple::try_from(MyEnum::Unit));
 <summary>Generated code</summary>
 
 ```rust,edition2018
-use std::convert::TryFrom;
+use core::convert::TryFrom;
 
 /// Unit variant.
 #[derive(Clone, Copy, Debug, PartialEq)]
