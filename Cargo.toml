@@ -1,6 +1,6 @@
 [package]
 name = "enum_variant_type"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Azriel Hoh <mail@azriel.im>"]
 edition = "2018"
 description = "Generates types for each enum variant and conversion trait impls."

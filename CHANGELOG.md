@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.1 (unreleased)
+## 0.2.1 (2021-04-24)
 
 * `no-std` support by default. ([#2], [#3])
 
