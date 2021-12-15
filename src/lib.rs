@@ -144,12 +144,13 @@
 extern crate alloc;
 extern crate proc_macro;
 
-use alloc::vec::Vec;
+use alloc::{string::String, vec::Vec};
 use proc_macro::TokenStream;
 use proc_macro_roids::{namespace_parameters, FieldsExt};
 use quote::quote;
 use syn::{
-    parse_macro_input, parse_quote, Attribute, Data, DataEnum, DeriveInput, Field, Fields, Path,
+    parse_macro_input, parse_quote, Attribute, Data, DataEnum, DeriveInput, Field, Fields, Lit,
+    Meta, NestedMeta, Path,
 };
 
 /// Attributes that should be copied across.
@@ -173,6 +174,30 @@ fn enum_variant_type_impl(ast: DeriveInput) -> proc_macro2::TokenStream {
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
     let data_enum = data_enum(&ast);
     let variants = &data_enum.variants;
+
+    let mut wrap_in_module = None::<String>;
+    for attr in ast.attrs.iter() {
+        if attr.path.is_ident("evt") {
+            if let Ok(Meta::List(list)) = attr.parse_meta() {
+                for item in list.nested.iter() {
+                    match item {
+                        NestedMeta::Meta(Meta::NameValue(name_value)) => {
+                            if let (true, Lit::Str(lit_str)) =
+                                (name_value.path.is_ident("module"), &name_value.lit)
+                            {
+                                wrap_in_module = Some(lit_str.value());
+                            } else {
+                                panic!("Expected module = \"some_module_name\"");
+                            }
+                        }
+                        _ => panic!("Invalid evt attr"),
+                    }
+                }
+            } else {
+                panic!("Invalid evt attr")
+            }
+        }
+    }
 
     let mut struct_declarations = proc_macro2::TokenStream::new();
 
@@ -281,7 +306,18 @@ fn enum_variant_type_impl(ast: DeriveInput) -> proc_macro2::TokenStream {
         }
     });
     struct_declarations.extend(struct_declarations_iter);
-    struct_declarations
+
+    if let Some(module_to_wrap_in) = wrap_in_module {
+        let module_ident =
+            proc_macro2::Ident::new(&module_to_wrap_in, proc_macro2::Span::call_site());
+        quote! {
+            mod #module_ident {
+                #struct_declarations
+            }
+        }
+    } else {
+        struct_declarations
+    }
 }
 
 fn data_enum(ast: &DeriveInput) -> &DataEnum {
@@ -426,6 +462,62 @@ mod tests {
                         core::result::Result::Ok(Unit)
                     } else {
                         core::result::Result::Err(enum_variant)
+                    }
+                }
+            }
+        };
+
+        assert_eq!(expected_tokens.to_string(), actual_tokens.to_string());
+    }
+
+    #[test]
+    fn put_variants_in_module() {
+        let ast: DeriveInput = parse_quote! {
+            #[evt(module = "example")]
+            pub enum MyEnum {
+                A,
+                B
+            }
+        };
+
+        let actual_tokens = enum_variant_type_impl(ast);
+        let expected_tokens = quote! {
+            mod example {
+                pub struct A;
+
+                impl core::convert::From<A> for MyEnum {
+                    fn from(variant_struct: A) -> Self {
+                        MyEnum::A
+                    }
+                }
+
+                impl core::convert::TryFrom<MyEnum> for A {
+                    type Error = MyEnum;
+                    fn try_from(enum_variant: MyEnum) -> Result<Self, Self::Error> {
+                        if let MyEnum::A = enum_variant {
+                            core::result::Result::Ok(A)
+                        } else {
+                            core::result::Result::Err(enum_variant)
+                        }
+                    }
+                }
+
+                pub struct B;
+
+                impl core::convert::From<B> for MyEnum {
+                    fn from(variant_struct: B) -> Self {
+                        MyEnum::B
+                    }
+                }
+
+                impl core::convert::TryFrom<MyEnum> for B {
+                    type Error = MyEnum;
+                    fn try_from(enum_variant: MyEnum) -> Result<Self, Self::Error> {
+                        if let MyEnum::B = enum_variant {
+                            core::result::Result::Ok(B)
+                        } else {
+                            core::result::Result::Err(enum_variant)
+                        }
                     }
                 }
             }
