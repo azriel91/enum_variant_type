@@ -355,7 +355,9 @@ fn enum_variant_type_impl(ast: DeriveInput) -> proc_macro2::TokenStream {
 
     if let Some(module_to_wrap_in) = wrap_in_module {
         quote! {
-            mod #module_to_wrap_in {
+            #vis mod #module_to_wrap_in {
+                use super::#enum_name;
+
                 #struct_declarations
             }
         }
@@ -526,7 +528,9 @@ mod tests {
 
         let actual_tokens = enum_variant_type_impl(ast);
         let expected_tokens = quote! {
-            mod example {
+            pub mod example {
+                use super::MyEnum;
+
                 pub struct A;
 
                 impl core::convert::From<A> for MyEnum {
