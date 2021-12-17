@@ -144,6 +144,12 @@ impl TryFrom<MyEnum> for Struct {
 
 </details>
 
+### Additional options specified by a evt attribute on enum:
+
+- `#[evt(derive(Clone, Copy))]`: derives `Clone`, `Copy` on **every** variant
+- `#[evt(module = "module1")]`: all generated variants are put into `mod module1 { ... }`
+- `#[evt(implement_marker_traits(MarkerTrait1))]`: all generated variants are implemented over `MarkerTrait1`
+
 ## License
 
 Licensed under either of
