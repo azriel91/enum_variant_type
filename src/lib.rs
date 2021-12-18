@@ -1,4 +1,4 @@
-#![deny(missing_debug_implementations, missing_docs)] // kcov-ignore
+#![deny(missing_debug_implementations, missing_docs)]
 #![no_std]
 #![recursion_limit = "128"]
 
@@ -26,10 +26,7 @@
 //!     Tuple(u32, u64),
 //!     /// Struct variant.
 //!     #[evt(derive(Debug))]
-//!     Struct {
-//!         field_0: u32,
-//!         field_1: u64,
-//!     },
+//!     Struct { field_0: u32, field_1: u64 },
 //!     /// Skipped variant.
 //!     #[evt(skip)]
 //!     Skipped,
@@ -39,7 +36,11 @@
 //! use core::convert::TryFrom;
 //! let unit: Unit = Unit::try_from(MyEnum::Unit).unwrap();
 //! let tuple: Tuple = Tuple::try_from(MyEnum::Tuple(12, 34)).unwrap();
-//! let named: Struct = Struct::try_from(MyEnum::Struct { field_0: 12, field_1: 34 }).unwrap();
+//! let named: Struct = Struct::try_from(MyEnum::Struct {
+//!     field_0: 12,
+//!     field_1: 34,
+//! })
+//! .unwrap();
 //!
 //! let enum_unit = MyEnum::from(unit);
 //! let enum_tuple = MyEnum::from(tuple);
@@ -140,16 +141,24 @@
 //! ```
 //!
 //! </details>
+//!
+//! ### Additional options specified by an `evt` attribute on enum:
+//!
+//! * `#[evt(derive(Clone, Copy))]`: Derives `Clone`, `Copy` on **every** variant.
+//! * `#[evt(module = "module1")]`: Generated structs are placed into `mod module1 { ... }`.
+//! * `#[evt(implement_marker_traits(MarkerTrait1))]`: Generated structs all `impl MarkerTrait1`.
 
 extern crate alloc;
 extern crate proc_macro;
 
 use alloc::vec::Vec;
 use proc_macro::TokenStream;
+use proc_macro2::{Ident, Span};
 use proc_macro_roids::{namespace_parameters, FieldsExt};
 use quote::quote;
 use syn::{
-    parse_macro_input, parse_quote, Attribute, Data, DataEnum, DeriveInput, Field, Fields, Path,
+    parse_macro_input, parse_quote, Attribute, Data, DataEnum, DeriveInput, Field, Fields, Lit,
+    Meta, NestedMeta, Path,
 };
 
 /// Attributes that should be copied across.
@@ -158,6 +167,7 @@ const ATTRIBUTES_TO_COPY: &[&str] = &["doc", "cfg", "allow", "deny"];
 /// Derives a struct for each enum variant.
 ///
 /// Struct fields including their attributes are copied over.
+#[cfg(not(tarpaulin_include))]
 #[proc_macro_derive(EnumVariantType, attributes(evt))]
 pub fn enum_variant_type(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -173,6 +183,58 @@ fn enum_variant_type_impl(ast: DeriveInput) -> proc_macro2::TokenStream {
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
     let data_enum = data_enum(&ast);
     let variants = &data_enum.variants;
+
+    let mut wrap_in_module = None::<Ident>;
+    let mut derive_for_all_variants = None::<Attribute>;
+    let mut marker_trait_paths = Vec::<Path>::new();
+
+    for attr in ast.attrs.iter() {
+        if attr.path.is_ident("evt") {
+            if let Ok(Meta::List(list)) = attr.parse_meta() {
+                for item in list.nested.iter() {
+                    match item {
+                        NestedMeta::Meta(Meta::NameValue(name_value)) => {
+                            if let (true, Lit::Str(lit_str)) =
+                                (name_value.path.is_ident("module"), &name_value.lit)
+                            {
+                                wrap_in_module =
+                                    Some(Ident::new(&lit_str.value(), Span::call_site()));
+                            } else {
+                                panic!("Expected `evt` attribute argument in the form: `#[evt(module = \"some_module_name\")]`");
+                            }
+                        }
+                        NestedMeta::Meta(Meta::List(list)) => {
+                            if list.path.is_ident("derive") {
+                                let items = list.nested.iter().map(|nested_meta| {
+                                    if let NestedMeta::Meta(Meta::Path(path)) = nested_meta {
+                                        path.clone()
+                                    } else {
+                                        panic!("Expected `evt` attribute argument in the form: `#[evt(derive(Clone, Debug))]`");
+                                    }
+                                });
+                                derive_for_all_variants = Some(parse_quote! {
+                                    #[derive( #(#items),* )]
+                                });
+                            } else if list.path.is_ident("implement_marker_traits") {
+                                marker_trait_paths = list.nested
+                                    .iter()
+                                    .map(|nested| if let NestedMeta::Meta(Meta::Path(path)) = nested {
+                                        path.clone()
+                                } else {
+                                    panic!("Expected `evt` attribute argument in the form #[evt(implement_marker_traits(MarkerTrait1, MarkerTrait2))]");
+                                }).collect();
+                            }
+                        }
+                        _ => {
+                            panic!("Unexpected usage of `evt` attribute, please see examples at:\n<https://docs.rs/enum_variant_type/>")
+                        }
+                    }
+                }
+            } else {
+                panic!("Unexpected usage of `evt` attribute, please see examples at:\n<https://docs.rs/enum_variant_type/>")
+            }
+        }
+    }
 
     let mut struct_declarations = proc_macro2::TokenStream::new();
 
@@ -272,23 +334,37 @@ fn enum_variant_type_impl(ast: DeriveInput) -> proc_macro2::TokenStream {
 
         quote! {
             #(#attrs_to_copy)*
+            #derive_for_all_variants
             #variant_struct_attrs
             #vis #data_struct
 
             #impl_from_variant_for_enum
 
             #impl_try_from_enum_for_variant
+
+            #(impl #ty_generics #marker_trait_paths for #variant_name #ty_generics {})*
         }
     });
     struct_declarations.extend(struct_declarations_iter);
-    struct_declarations
+
+    if let Some(module_to_wrap_in) = wrap_in_module {
+        quote! {
+            #vis mod #module_to_wrap_in {
+                use super::#enum_name;
+
+                #struct_declarations
+            }
+        }
+    } else {
+        struct_declarations
+    }
 }
 
 fn data_enum(ast: &DeriveInput) -> &DataEnum {
     if let Data::Enum(data_enum) = &ast.data {
         data_enum
     } else {
-        panic!("`EnumVariantType` derive can only be used on an enum."); // kcov-ignore
+        panic!("`EnumVariantType` derive can only be used on an enum.");
     }
 }
 
@@ -429,6 +505,180 @@ mod tests {
                     }
                 }
             }
+        };
+
+        assert_eq!(expected_tokens.to_string(), actual_tokens.to_string());
+    }
+
+    #[test]
+    fn put_variants_in_module() {
+        let ast: DeriveInput = parse_quote! {
+            #[evt(module = "example")]
+            pub enum MyEnum {
+                A,
+                B
+            }
+        };
+
+        let actual_tokens = enum_variant_type_impl(ast);
+        let expected_tokens = quote! {
+            pub mod example {
+                use super::MyEnum;
+
+                pub struct A;
+
+                impl core::convert::From<A> for MyEnum {
+                    fn from(variant_struct: A) -> Self {
+                        MyEnum::A
+                    }
+                }
+
+                impl core::convert::TryFrom<MyEnum> for A {
+                    type Error = MyEnum;
+                    fn try_from(enum_variant: MyEnum) -> Result<Self, Self::Error> {
+                        if let MyEnum::A = enum_variant {
+                            core::result::Result::Ok(A)
+                        } else {
+                            core::result::Result::Err(enum_variant)
+                        }
+                    }
+                }
+
+                pub struct B;
+
+                impl core::convert::From<B> for MyEnum {
+                    fn from(variant_struct: B) -> Self {
+                        MyEnum::B
+                    }
+                }
+
+                impl core::convert::TryFrom<MyEnum> for B {
+                    type Error = MyEnum;
+                    fn try_from(enum_variant: MyEnum) -> Result<Self, Self::Error> {
+                        if let MyEnum::B = enum_variant {
+                            core::result::Result::Ok(B)
+                        } else {
+                            core::result::Result::Err(enum_variant)
+                        }
+                    }
+                }
+            }
+        };
+
+        assert_eq!(expected_tokens.to_string(), actual_tokens.to_string());
+    }
+
+    #[test]
+    fn derive_traits_for_all_variants() {
+        let ast: DeriveInput = parse_quote! {
+            #[evt(derive(Debug))]
+            pub enum MyEnum {
+                A,
+                #[evt(derive(Clone))]
+                B
+            }
+        };
+
+        let actual_tokens = enum_variant_type_impl(ast);
+        let expected_tokens = quote! {
+            #[derive(Debug)]
+            pub struct A;
+
+            impl core::convert::From<A> for MyEnum {
+                fn from(variant_struct: A) -> Self {
+                    MyEnum::A
+                }
+            }
+
+            impl core::convert::TryFrom<MyEnum> for A {
+                type Error = MyEnum;
+                fn try_from(enum_variant: MyEnum) -> Result<Self, Self::Error> {
+                    if let MyEnum::A = enum_variant {
+                        core::result::Result::Ok(A)
+                    } else {
+                        core::result::Result::Err(enum_variant)
+                    }
+                }
+            }
+
+            #[derive(Debug)]
+            #[derive(Clone)]
+            pub struct B;
+
+            impl core::convert::From<B> for MyEnum {
+                fn from(variant_struct: B) -> Self {
+                    MyEnum::B
+                }
+            }
+
+            impl core::convert::TryFrom<MyEnum> for B {
+                type Error = MyEnum;
+                fn try_from(enum_variant: MyEnum) -> Result<Self, Self::Error> {
+                    if let MyEnum::B = enum_variant {
+                        core::result::Result::Ok(B)
+                    } else {
+                        core::result::Result::Err(enum_variant)
+                    }
+                }
+            }
+        };
+
+        assert_eq!(expected_tokens.to_string(), actual_tokens.to_string());
+    }
+
+    #[test]
+    fn derive_marker_trait() {
+        let ast: DeriveInput = parse_quote! {
+            #[evt(implement_marker_traits(MarkerTrait1))]
+            pub enum MyEnum {
+                A,
+                B
+            }
+        };
+
+        let actual_tokens = enum_variant_type_impl(ast);
+        let expected_tokens = quote! {
+            pub struct A;
+
+            impl core::convert::From<A> for MyEnum {
+                fn from(variant_struct: A) -> Self {
+                    MyEnum::A
+                }
+            }
+
+            impl core::convert::TryFrom<MyEnum> for A {
+                type Error = MyEnum;
+                fn try_from(enum_variant: MyEnum) -> Result<Self, Self::Error> {
+                    if let MyEnum::A = enum_variant {
+                        core::result::Result::Ok(A)
+                    } else {
+                        core::result::Result::Err(enum_variant)
+                    }
+                }
+            }
+
+            impl MarkerTrait1 for A {}
+
+            pub struct B;
+
+            impl core::convert::From<B> for MyEnum {
+                fn from(variant_struct: B) -> Self {
+                    MyEnum::B
+                }
+            }
+
+            impl core::convert::TryFrom<MyEnum> for B {
+                type Error = MyEnum;
+                fn try_from(enum_variant: MyEnum) -> Result<Self, Self::Error> {
+                    if let MyEnum::B = enum_variant {
+                        core::result::Result::Ok(B)
+                    } else {
+                        core::result::Result::Err(enum_variant)
+                    }
+                }
+            }
+
+            impl MarkerTrait1 for B {}
         };
 
         assert_eq!(expected_tokens.to_string(), actual_tokens.to_string());

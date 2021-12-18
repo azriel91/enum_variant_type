@@ -1,5 +1,7 @@
 [![Crates.io](https://img.shields.io/crates/v/enum_variant_type.svg)](https://crates.io/crates/enum_variant_type)
-{{badges}}
+[![docs.rs](https://img.shields.io/docsrs/enum_variant_type)](https://docs.rs/enum_variant_type)
+[![CI](https://github.com/azriel91/enum_variant_type/workflows/CI/badge.svg)](https://github.com/azriel91/enum_variant_type/actions/workflows/ci.yml)
+[![Coverage Status](https://codecov.io/gh/azriel91/enum_variant_type/branch/main/graph/badge.svg)](https://codecov.io/gh/azriel91/enum_variant_type)
 
 # Enum Variant Type
 
