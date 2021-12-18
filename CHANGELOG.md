@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0 (2021-12-18)
+
+* `#[evt(derive(..))]` on enum adds derives on every variant. ([#6], [#7])
+* `#[evt(module = "module1")]` generates structs inside `mod module1`. ([#5], [#7])
+* `#[evt(implement_marker_traits(MarkerTrait1))]` on enum generates `impl MarkerTrait1` for all generated structs. ([#7])
+
+[#5]: https://github.com/azriel91/enum_variant_type/issues/5
+[#6]: https://github.com/azriel91/enum_variant_type/issues/6
+[#7]: https://github.com/azriel91/enum_variant_type/pulls/7
+
 ## 0.2.1 (2021-04-24)
 
 * `no-std` support by default. ([#2], [#3])
