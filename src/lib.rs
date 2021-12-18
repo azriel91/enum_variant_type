@@ -1,4 +1,4 @@
-#![deny(missing_debug_implementations, missing_docs)] // kcov-ignore
+#![deny(missing_debug_implementations, missing_docs)]
 #![no_std]
 #![recursion_limit = "128"]
 
@@ -167,6 +167,7 @@ const ATTRIBUTES_TO_COPY: &[&str] = &["doc", "cfg", "allow", "deny"];
 /// Derives a struct for each enum variant.
 ///
 /// Struct fields including their attributes are copied over.
+#[cfg(not(tarpaulin_include))]
 #[proc_macro_derive(EnumVariantType, attributes(evt))]
 pub fn enum_variant_type(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -363,7 +364,7 @@ fn data_enum(ast: &DeriveInput) -> &DataEnum {
     if let Data::Enum(data_enum) = &ast.data {
         data_enum
     } else {
-        panic!("`EnumVariantType` derive can only be used on an enum."); // kcov-ignore
+        panic!("`EnumVariantType` derive can only be used on an enum.");
     }
 }
 
