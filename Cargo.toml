@@ -22,8 +22,3 @@ syn = { version = "1.0.69", features = ["extra-traits", "visit"] }
 
 [dev-dependencies]
 pretty_assertions = "0.6.1"
-
-[badges]
-appveyor = { repository = "azriel91/enum_variant_type" }
-travis-ci = { repository = "azriel91/enum_variant_type" }
-codecov = { repository = "azriel91/enum_variant_type" }

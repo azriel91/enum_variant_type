@@ -1,7 +1,7 @@
 [![Crates.io](https://img.shields.io/crates/v/enum_variant_type.svg)](https://crates.io/crates/enum_variant_type)
-[![Build Status](https://ci.appveyor.com/api/projects/status/github/azriel91/enum_variant_type?branch=master&svg=true)](https://ci.appveyor.com/project/azriel91/enum_variant_type/branch/master)
-[![Build Status](https://travis-ci.org/azriel91/enum_variant_type.svg?branch=master)](https://travis-ci.org/azriel91/enum_variant_type)
-[![Coverage Status](https://codecov.io/gh/azriel91/enum_variant_type/branch/master/graph/badge.svg)](https://codecov.io/gh/azriel91/enum_variant_type)
+[![docs.rs](https://img.shields.io/docsrs/enum_variant_type)](https://docs.rs/enum_variant_type)
+[![CI](https://github.com/azriel91/enum_variant_type/workflows/CI/badge.svg)](https://github.com/azriel91/enum_variant_type/actions/workflows/ci.yml)
+[![Coverage Status](https://codecov.io/gh/azriel91/enum_variant_type/branch/main/graph/badge.svg)](https://codecov.io/gh/azriel91/enum_variant_type)
 
 # Enum Variant Type
 
@@ -29,10 +29,7 @@ pub enum MyEnum {
     Tuple(u32, u64),
     /// Struct variant.
     #[evt(derive(Debug))]
-    Struct {
-        field_0: u32,
-        field_1: u64,
-    },
+    Struct { field_0: u32, field_1: u64 },
     /// Skipped variant.
     #[evt(skip)]
     Skipped,
@@ -42,7 +39,11 @@ pub enum MyEnum {
 use core::convert::TryFrom;
 let unit: Unit = Unit::try_from(MyEnum::Unit).unwrap();
 let tuple: Tuple = Tuple::try_from(MyEnum::Tuple(12, 34)).unwrap();
-let named: Struct = Struct::try_from(MyEnum::Struct { field_0: 12, field_1: 34 }).unwrap();
+let named: Struct = Struct::try_from(MyEnum::Struct {
+    field_0: 12,
+    field_1: 34,
+})
+.unwrap();
 
 let enum_unit = MyEnum::from(unit);
 let enum_tuple = MyEnum::from(tuple);
@@ -144,11 +145,11 @@ impl TryFrom<MyEnum> for Struct {
 
 </details>
 
-### Additional options specified by a evt attribute on enum:
+#### Additional options specified by an `evt` attribute on enum:
 
-- `#[evt(derive(Clone, Copy))]`: derives `Clone`, `Copy` on **every** variant
-- `#[evt(module = "module1")]`: all generated variants are put into `mod module1 { ... }`
-- `#[evt(implement_marker_traits(MarkerTrait1))]`: all generated variants are implemented over `MarkerTrait1`
+* `#[evt(derive(Clone, Copy))]`: Derives `Clone`, `Copy` on **every** variant.
+* `#[evt(module = "module1")]`: Generated structs are placed into `mod module1 { ... }`.
+* `#[evt(implement_marker_traits(MarkerTrait1))]`: Generated structs all `impl MarkerTrait1`.
 
 ## License
 

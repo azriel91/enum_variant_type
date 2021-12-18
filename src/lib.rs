@@ -51,12 +51,6 @@
 //! assert_eq!(Err(MyEnum::Unit), Tuple::try_from(MyEnum::Unit));
 //! ```
 //!
-//! ### Additional options specified by a evt attribute on enum:
-//!
-//! - `#[evt(derive(Clone, Copy))]`: derives `Clone`, `Copy` on **every** variant
-//! - `#[evt(module = "module1")]`: all generated variants are put into `mod module1 { ... }`
-//! - `#[evt(implement_marker_traits(MarkerTrait1))]`: all generated variants are implemented over `MarkerTrait1`
-//!
 //! <details>
 //!
 //! <summary>Generated code</summary>
@@ -147,6 +141,12 @@
 //! ```
 //!
 //! </details>
+//!
+//! ### Additional options specified by an `evt` attribute on enum:
+//!
+//! * `#[evt(derive(Clone, Copy))]`: Derives `Clone`, `Copy` on **every** variant.
+//! * `#[evt(module = "module1")]`: Generated structs are placed into `mod module1 { ... }`.
+//! * `#[evt(implement_marker_traits(MarkerTrait1))]`: Generated structs all `impl MarkerTrait1`.
 
 extern crate alloc;
 extern crate proc_macro;
@@ -199,7 +199,7 @@ fn enum_variant_type_impl(ast: DeriveInput) -> proc_macro2::TokenStream {
                                 wrap_in_module =
                                     Some(Ident::new(&lit_str.value(), Span::call_site()));
                             } else {
-                                panic!("Expected evt attribute argument of form #[evt(module = \"some_module_name\")]");
+                                panic!("Expected `evt` attribute argument in the form: `#[evt(module = \"some_module_name\")]`");
                             }
                         }
                         NestedMeta::Meta(Meta::List(list)) => {
@@ -208,7 +208,7 @@ fn enum_variant_type_impl(ast: DeriveInput) -> proc_macro2::TokenStream {
                                     if let NestedMeta::Meta(Meta::Path(path)) = nested_meta {
                                         path.clone()
                                     } else {
-                                        panic!("Expected evt attribute argument of form #[evt(derive(Clone, Debug))]");
+                                        panic!("Expected `evt` attribute argument in the form: `#[evt(derive(Clone, Debug))]`");
                                     }
                                 });
                                 derive_for_all_variants = Some(parse_quote! {
@@ -220,15 +220,17 @@ fn enum_variant_type_impl(ast: DeriveInput) -> proc_macro2::TokenStream {
                                     .map(|nested| if let NestedMeta::Meta(Meta::Path(path)) = nested {
                                         path.clone()
                                 } else {
-                                    panic!("Expected evt attribute argument of form #[evt(implement_marker_traits(MarkerTrait1, MarkerTrait2))]");
+                                    panic!("Expected `evt` attribute argument in the form #[evt(implement_marker_traits(MarkerTrait1, MarkerTrait2))]");
                                 }).collect();
                             }
                         }
-                        _ => panic!("Incorrect usage of evt attribute, see README.md"),
+                        _ => {
+                            panic!("Unexpected usage of `evt` attribute, please see examples at:\n<https://docs.rs/enum_variant_type/>")
+                        }
                     }
                 }
             } else {
-                panic!("Invalid evt attr")
+                panic!("Unexpected usage of `evt` attribute, please see examples at:\n<https://docs.rs/enum_variant_type/>")
             }
         }
     }
