@@ -26,10 +26,7 @@
 //!     Tuple(u32, u64),
 //!     /// Struct variant.
 //!     #[evt(derive(Debug))]
-//!     Struct {
-//!         field_0: u32,
-//!         field_1: u64,
-//!     },
+//!     Struct { field_0: u32, field_1: u64 },
 //!     /// Skipped variant.
 //!     #[evt(skip)]
 //!     Skipped,
@@ -39,7 +36,11 @@
 //! use core::convert::TryFrom;
 //! let unit: Unit = Unit::try_from(MyEnum::Unit).unwrap();
 //! let tuple: Tuple = Tuple::try_from(MyEnum::Tuple(12, 34)).unwrap();
-//! let named: Struct = Struct::try_from(MyEnum::Struct { field_0: 12, field_1: 34 }).unwrap();
+//! let named: Struct = Struct::try_from(MyEnum::Struct {
+//!     field_0: 12,
+//!     field_1: 34,
+//! })
+//! .unwrap();
 //!
 //! let enum_unit = MyEnum::from(unit);
 //! let enum_tuple = MyEnum::from(tuple);
@@ -51,6 +52,7 @@
 //! ```
 //!
 //! ### Additional options specified by a evt attribute on enum:
+//!
 //! - `#[evt(derive(Clone, Copy))]`: derives `Clone`, `Copy` on **every** variant
 //! - `#[evt(module = "module1")]`: all generated variants are put into `mod module1 { ... }`
 //! - `#[evt(implement_marker_traits(MarkerTrait1))]`: all generated variants are implemented over `MarkerTrait1`
