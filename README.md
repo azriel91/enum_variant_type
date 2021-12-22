@@ -11,7 +11,7 @@ This is a poor-man's implementation of <https://github.com/rust-lang/rfcs/pull/2
 
 ```toml
 [dependencies]
-enum_variant_type = "0.3.0"
+enum_variant_type = "0.3.1"
 ```
 
 ## Examples

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1 (2021-12-22)
+
+* Import all items from parent scope when generating structs in submodule. ([#9])
+
+[#9]: https://github.com/azriel91/enum_variant_type/pulls/9
+
 ## 0.3.0 (2021-12-18)
 
 * `#[evt(derive(..))]` on enum adds derives on every variant. ([#6], [#7])

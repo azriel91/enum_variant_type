@@ -8,7 +8,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! enum_variant_type = "0.3.0"
+//! enum_variant_type = "0.3.1"
 //! ```
 //!
 //! # Examples
