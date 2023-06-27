@@ -25,19 +25,12 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v3
-      - # FIXME: Switch back when actions-rs/toolchain#{209,220,222} is merged
-        uses: r3-os/actions-rust-toolchain@a862b6623c178b43a3135516442a5f72fb5c1877
+      - uses: dtolnay/rust-toolchain@master
         with:
-          profile: minimal
           toolchain: nightly
-          override: true
           components: rustfmt
 
-      - # FIXME: Switch back when actions-rs/cargo#217 gets merged
-        uses: r3-os/actions-rust-cargo@fb222fe18dc90e381546d012f9e3d6f353f0f627
-        with:
-          command: fmt
-          args: --all -- --check
+      - run: cargo fmt --all -- --check
 
   clippy:
     name: Clippy
@@ -45,12 +38,9 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v3
-      - # FIXME: Switch back when actions-rs/toolchain#{209,220,222} is merged
-        uses: r3-os/actions-rust-toolchain@a862b6623c178b43a3135516442a5f72fb5c1877
+      - uses: dtolnay/rust-toolchain@master
         with:
-          profile: minimal
           toolchain: nightly
-          override: true
           components: clippy
 
       - # FIXME: Switch back when actions-rs/cargo#217 gets merged
@@ -104,12 +94,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v3
-      - # FIXME: Switch back when actions-rs/toolchain#{209,220,222} is merged
-        uses: r3-os/actions-rust-toolchain@a862b6623c178b43a3135516442a5f72fb5c1877
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+      - uses: dtolnay/rust-toolchain@stable
 
       - # FIXME: Switch back when actions-rs/cargo#217 gets merged
         uses: r3-os/actions-rust-cargo@fb222fe18dc90e381546d012f9e3d6f353f0f627
@@ -126,12 +111,7 @@ jobs:
         run: git config --global core.symlinks true
 
       - uses: actions/checkout@v3
-      - # FIXME: Switch back when actions-rs/toolchain#{209,220,222} is merged
-        uses: r3-os/actions-rust-toolchain@a862b6623c178b43a3135516442a5f72fb5c1877
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+      - uses: dtolnay/rust-toolchain@stable
 
       - # FIXME: Switch back when actions-rs/cargo#217 gets merged
         uses: r3-os/actions-rust-cargo@fb222fe18dc90e381546d012f9e3d6f353f0f627
