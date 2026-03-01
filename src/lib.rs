@@ -151,7 +151,7 @@
 extern crate alloc;
 extern crate proc_macro;
 
-use alloc::vec::Vec;
+use alloc::{string::ToString, vec::Vec};
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use proc_macro_roids::{namespace_parameters, FieldsExt};
@@ -187,9 +187,27 @@ fn enum_variant_type_impl(ast: DeriveInput) -> proc_macro2::TokenStream {
     let mut wrap_in_module = None::<Ident>;
     let mut derive_for_all_variants = None::<Attribute>;
     let mut marker_trait_paths = Vec::<Path>::new();
+    let mut repr_c = false;
 
     for attr in ast.attrs.iter() {
-        if attr.path.is_ident("evt") {
+        if attr.path.is_ident("repr") {
+            // wrap each enum struct in "repr(C)" ?
+            if let Ok(Meta::List(list)) = attr.parse_meta() {
+                for item in list.nested.iter() {
+                    match item {
+                        NestedMeta::Meta(Meta::Path(Path { segments, .. })) => {
+                            segments.iter().for_each(|x| match x {
+                                &syn::PathSegment { ref ident, .. } if ident.to_string() == "C" => {
+                                    repr_c = true;
+                                }
+                                _ => {}
+                            });
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        } else if attr.path.is_ident("evt") {
             if let Ok(Meta::List(list)) = attr.parse_meta() {
                 for item in list.nested.iter() {
                     match item {
@@ -256,7 +274,7 @@ fn enum_variant_type_impl(ast: DeriveInput) -> proc_macro2::TokenStream {
             .collect::<Vec<&Attribute>>();
 
         let evt_meta_lists = namespace_parameters(&variant.attrs, &ns);
-        let variant_struct_attrs = evt_meta_lists
+        let mut variant_struct_attrs = evt_meta_lists
             .into_iter()
             .fold(
                 proc_macro2::TokenStream::new(),
@@ -265,6 +283,13 @@ fn enum_variant_type_impl(ast: DeriveInput) -> proc_macro2::TokenStream {
                     attrs_tokens
                 },
             );
+
+        if repr_c {
+            variant_struct_attrs.extend(quote! {
+                 #[repr(C)]
+            })
+        }
+
         let variant_fields = &variant.fields;
 
         // Need to attach visibility modifier to fields.
@@ -679,6 +704,66 @@ mod tests {
             }
 
             impl MarkerTrait1 for B {}
+        };
+
+        assert_eq!(expected_tokens.to_string(), actual_tokens.to_string());
+    }
+
+    #[test]
+    fn derive_marker_repr() {
+        let ast: DeriveInput = parse_quote! {
+            #[derive(Debug)]
+            #[repr(C)]
+            pub enum MyEnum {
+                A { i: i64 },
+                B { i: i64 },
+            }
+        };
+
+        let actual_tokens = enum_variant_type_impl(ast);
+        let expected_tokens = quote! {
+
+            #[repr(C)]
+            pub struct A { pub i: i64, }
+
+            impl core::convert::From<A> for MyEnum {
+                fn from(variant_struct: A) -> Self {
+                    let A { i, } = variant_struct;
+                    MyEnum::A { i, }
+                }
+            }
+
+            impl core::convert::TryFrom<MyEnum> for A {
+                type Error = MyEnum;
+                fn try_from(enum_variant: MyEnum) -> Result<Self, Self::Error> {
+                    if let MyEnum::A { i, } = enum_variant {
+                        core::result::Result::Ok(A { i, })
+                    } else {
+                        core::result::Result::Err(enum_variant)
+                    }
+                }
+            }
+
+            #[repr(C)]
+            pub struct B { pub i: i64, }
+
+            impl core::convert::From<B> for MyEnum {
+                fn from(variant_struct: B) -> Self {
+                    let B { i, } = variant_struct;
+                    MyEnum::B { i, }
+                }
+            }
+
+            impl core::convert::TryFrom<MyEnum> for B {
+                type Error = MyEnum;
+                fn try_from(enum_variant: MyEnum) -> Result<Self, Self::Error> {
+                    if let MyEnum::B { i, } = enum_variant {
+                        core::result::Result::Ok(B { i, })
+                    } else {
+                        core::result::Result::Err(enum_variant)
+                    }
+                }
+            }
         };
 
         assert_eq!(expected_tokens.to_string(), actual_tokens.to_string());
