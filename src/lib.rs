@@ -157,8 +157,8 @@ use proc_macro2::{Ident, Span};
 use proc_macro_roids::{namespace_parameters, FieldsExt};
 use quote::quote;
 use syn::{
-    parse_macro_input, parse_quote, Attribute, Data, DataEnum, DeriveInput, Field, Fields, Lit,
-    Meta, NestedMeta, Path,
+    parse_macro_input, parse_quote, Attribute, Data, DataEnum, DeriveInput, Field, Fields, LitStr,
+    Meta, Path,
 };
 
 /// Attributes that should be copied across.
@@ -187,52 +187,70 @@ fn enum_variant_type_impl(ast: DeriveInput) -> proc_macro2::TokenStream {
     let mut wrap_in_module = None::<Ident>;
     let mut derive_for_all_variants = None::<Attribute>;
     let mut marker_trait_paths = Vec::<Path>::new();
+    let mut repr_c = false;
 
     for attr in ast.attrs.iter() {
-        if attr.path.is_ident("evt") {
-            if let Ok(Meta::List(list)) = attr.parse_meta() {
-                for item in list.nested.iter() {
-                    match item {
-                        NestedMeta::Meta(Meta::NameValue(name_value)) => {
-                            if let (true, Lit::Str(lit_str)) =
-                                (name_value.path.is_ident("module"), &name_value.lit)
-                            {
-                                wrap_in_module =
-                                    Some(Ident::new(&lit_str.value(), Span::call_site()));
-                            } else {
-                                panic!("Expected `evt` attribute argument in the form: `#[evt(module = \"some_module_name\")]`");
-                            }
-                        }
-                        NestedMeta::Meta(Meta::List(list)) => {
-                            if list.path.is_ident("derive") {
-                                let items = list.nested.iter().map(|nested_meta| {
-                                    if let NestedMeta::Meta(Meta::Path(path)) = nested_meta {
-                                        path.clone()
-                                    } else {
-                                        panic!("Expected `evt` attribute argument in the form: `#[evt(derive(Clone, Debug))]`");
-                                    }
-                                });
-                                derive_for_all_variants = Some(parse_quote! {
-                                    #[derive( #(#items),* )]
-                                });
-                            } else if list.path.is_ident("implement_marker_traits") {
-                                marker_trait_paths = list.nested
-                                    .iter()
-                                    .map(|nested| if let NestedMeta::Meta(Meta::Path(path)) = nested {
-                                        path.clone()
-                                } else {
-                                    panic!("Expected `evt` attribute argument in the form #[evt(implement_marker_traits(MarkerTrait1, MarkerTrait2))]");
-                                }).collect();
-                            }
-                        }
-                        _ => {
-                            panic!("Unexpected usage of `evt` attribute, please see examples at:\n<https://docs.rs/enum_variant_type/>")
-                        }
+        if attr.path().is_ident("repr") {
+            // wrap each enum struct in "repr(C)" ?
+            if let Meta::List(list) = &attr.meta {
+                list.parse_nested_meta(|parse_nested_meta| {
+                    if parse_nested_meta.path.is_ident("C") {
+                        repr_c = true;
                     }
-                }
-            } else {
-                panic!("Unexpected usage of `evt` attribute, please see examples at:\n<https://docs.rs/enum_variant_type/>")
+                    Ok(())
+                })
+                .unwrap_or_else(|e| panic!("Failed to parse repr attribute. Error: {}", e));
             }
+        } else if attr.path().is_ident("evt") {
+            attr.parse_nested_meta(|nested_meta| {
+                if nested_meta.path.is_ident("module") {
+                    // `#[evt(module = \"some_module_name\")]`
+                    let module_name: LitStr = nested_meta
+                        .value()
+                        .and_then(|value| value.parse())
+                        .unwrap_or_else(|e| {
+                            panic!(
+                                "Expected `evt` attribute argument in the form: \
+                                    `#[evt(module = \"some_module_name\")]`. Error: {}",
+                                e
+                            )
+                        });
+
+                    wrap_in_module = Some(Ident::new(&module_name.value(), Span::call_site()));
+                    return Ok(());
+                }
+                // `#[evt(derive(Clone, Debug))]`
+                if nested_meta.path.is_ident("derive") {
+                    let mut items = Vec::new();
+                    nested_meta.parse_nested_meta(|parse_nested_meta| {
+                        items.push(parse_nested_meta.path);
+                        Ok(())
+                    })?;
+
+                    derive_for_all_variants = Some(parse_quote! {
+                        #[derive( #(#items),* )]
+                    });
+                    return Ok(());
+                }
+
+                // `#[evt(implement_marker_traits(MarkerTrait1, MarkerTrait2))]`
+                if nested_meta.path.is_ident("implement_marker_traits") {
+                    nested_meta.parse_nested_meta(|parse_nested_meta| {
+                        marker_trait_paths.push(parse_nested_meta.path);
+                        Ok(())
+                    })?;
+
+                    return Ok(());
+                }
+
+                panic!(
+                    "Unexpected usage of `evt` attribute, please see  examples at:\n\
+                        <https://docs.rs/enum_variant_type/>"
+                )
+            })
+            .unwrap_or_else(|e| {
+                panic!("Failed to process evt attribute. Error: {}", e);
+            });
         }
     }
 
@@ -251,12 +269,12 @@ fn enum_variant_type_impl(ast: DeriveInput) -> proc_macro2::TokenStream {
             .filter(|attribute| {
                 ATTRIBUTES_TO_COPY
                     .iter()
-                    .any(|attr_to_copy| attribute.path.is_ident(attr_to_copy))
+                    .any(|attr_to_copy| attribute.path().is_ident(attr_to_copy))
             })
             .collect::<Vec<&Attribute>>();
 
         let evt_meta_lists = namespace_parameters(&variant.attrs, &ns);
-        let variant_struct_attrs = evt_meta_lists
+        let mut variant_struct_attrs = evt_meta_lists
             .into_iter()
             .fold(
                 proc_macro2::TokenStream::new(),
@@ -265,6 +283,13 @@ fn enum_variant_type_impl(ast: DeriveInput) -> proc_macro2::TokenStream {
                     attrs_tokens
                 },
             );
+
+        if repr_c {
+            variant_struct_attrs.extend(quote! {
+                 #[repr(C)]
+            })
+        }
+
         let variant_fields = &variant.fields;
 
         // Need to attach visibility modifier to fields.
@@ -679,6 +704,66 @@ mod tests {
             }
 
             impl MarkerTrait1 for B {}
+        };
+
+        assert_eq!(expected_tokens.to_string(), actual_tokens.to_string());
+    }
+
+    #[test]
+    fn derive_marker_repr() {
+        let ast: DeriveInput = parse_quote! {
+            #[derive(Debug)]
+            #[repr(C)]
+            pub enum MyEnum {
+                A { i: i64 },
+                B { i: i64 },
+            }
+        };
+
+        let actual_tokens = enum_variant_type_impl(ast);
+        let expected_tokens = quote! {
+
+            #[repr(C)]
+            pub struct A { pub i: i64, }
+
+            impl core::convert::From<A> for MyEnum {
+                fn from(variant_struct: A) -> Self {
+                    let A { i, } = variant_struct;
+                    MyEnum::A { i, }
+                }
+            }
+
+            impl core::convert::TryFrom<MyEnum> for A {
+                type Error = MyEnum;
+                fn try_from(enum_variant: MyEnum) -> Result<Self, Self::Error> {
+                    if let MyEnum::A { i, } = enum_variant {
+                        core::result::Result::Ok(A { i, })
+                    } else {
+                        core::result::Result::Err(enum_variant)
+                    }
+                }
+            }
+
+            #[repr(C)]
+            pub struct B { pub i: i64, }
+
+            impl core::convert::From<B> for MyEnum {
+                fn from(variant_struct: B) -> Self {
+                    let B { i, } = variant_struct;
+                    MyEnum::B { i, }
+                }
+            }
+
+            impl core::convert::TryFrom<MyEnum> for B {
+                type Error = MyEnum;
+                fn try_from(enum_variant: MyEnum) -> Result<Self, Self::Error> {
+                    if let MyEnum::B { i, } = enum_variant {
+                        core::result::Result::Ok(B { i, })
+                    } else {
+                        core::result::Result::Err(enum_variant)
+                    }
+                }
+            }
         };
 
         assert_eq!(expected_tokens.to_string(), actual_tokens.to_string());

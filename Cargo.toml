@@ -15,10 +15,13 @@ path = "src/lib.rs"
 proc-macro = true
 
 [dependencies]
-proc-macro2 = "1.0.34"
-proc_macro_roids = "0.7.0"
-quote = "1.0.10"
-syn = { version = "1.0.82", features = ["extra-traits", "visit"] }
+proc-macro2 = "1.0.106"
+proc_macro_roids = "0.8.0"
+quote = "1.0.44"
+syn = { version = "2.0.117", features = ["extra-traits", "visit"] }
 
 [dev-dependencies]
-pretty_assertions = "1.0.0"
+pretty_assertions = "1.4.1"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(tarpaulin_include)"] }
