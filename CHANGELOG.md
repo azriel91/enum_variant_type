@@ -1,6 +1,6 @@
 # Changelog
 
-## unreleased
+## 0.4.0 (2026-03-03)
 
 * Propagate `#[repr(C)]` onto generated structs. ([#11][#11], [#12][#12])
 * Update to `syn` `2`. ([#12][#12])
