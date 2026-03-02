@@ -151,7 +151,7 @@
 extern crate alloc;
 extern crate proc_macro;
 
-use alloc::{string::ToString, vec::Vec};
+use alloc::vec::Vec;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use proc_macro_roids::{namespace_parameters, FieldsExt};
@@ -194,16 +194,13 @@ fn enum_variant_type_impl(ast: DeriveInput) -> proc_macro2::TokenStream {
             // wrap each enum struct in "repr(C)" ?
             if let Ok(Meta::List(list)) = attr.parse_meta() {
                 for item in list.nested.iter() {
-                    match item {
-                        NestedMeta::Meta(Meta::Path(Path { segments, .. })) => {
-                            segments.iter().for_each(|x| match x {
-                                &syn::PathSegment { ref ident, .. } if ident.to_string() == "C" => {
-                                    repr_c = true;
-                                }
-                                _ => {}
-                            });
-                        }
-                        _ => {}
+                    if let NestedMeta::Meta(Meta::Path(Path { segments, .. })) = item {
+                        segments.iter().for_each(|x| match x {
+                            syn::PathSegment { ident, .. } if *ident == "C" => {
+                                repr_c = true;
+                            }
+                            _ => {}
+                        });
                     }
                 }
             }

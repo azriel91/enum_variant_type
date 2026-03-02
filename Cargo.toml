@@ -22,3 +22,6 @@ syn = { version = "1.0.82", features = ["extra-traits", "visit"] }
 
 [dev-dependencies]
 pretty_assertions = "1.0.0"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(tarpaulin_include)"] }
