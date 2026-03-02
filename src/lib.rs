@@ -202,62 +202,55 @@ fn enum_variant_type_impl(ast: DeriveInput) -> proc_macro2::TokenStream {
                 .unwrap_or_else(|e| panic!("Failed to parse repr attribute. Error: {}", e));
             }
         } else if attr.path().is_ident("evt") {
-            if let Meta::List(list) = &attr.meta {
-                list.parse_nested_meta(|parse_nested_meta| {
-                    if parse_nested_meta.path.is_ident("module") {
-                        // `#[evt(module = \"some_module_name\")]`
-                        let module_name: LitStr = parse_nested_meta
-                            .value()
-                            .and_then(|value| value.parse())
-                            .unwrap_or_else(|e| {
-                                panic!(
-                                    "Expected `evt` attribute argument in the form: \
+            attr.parse_nested_meta(|nested_meta| {
+                if nested_meta.path.is_ident("module") {
+                    // `#[evt(module = \"some_module_name\")]`
+                    let module_name: LitStr = nested_meta
+                        .value()
+                        .and_then(|value| value.parse())
+                        .unwrap_or_else(|e| {
+                            panic!(
+                                "Expected `evt` attribute argument in the form: \
                                     `#[evt(module = \"some_module_name\")]`. Error: {}",
-                                    e
-                                )
-                            });
-
-                        wrap_in_module = Some(Ident::new(&module_name.value(), Span::call_site()));
-                        return Ok(());
-                    }
-                    // `#[evt(derive(Clone, Debug))]`
-                    if parse_nested_meta.path.is_ident("derive") {
-                        let mut items = Vec::new();
-                        list.parse_nested_meta(|parse_nested_meta| {
-                            items.push(parse_nested_meta.path);
-                            Ok(())
-                        })?;
-
-                        derive_for_all_variants = Some(parse_quote! {
-                            #[derive( #(#items),* )]
+                                e
+                            )
                         });
-                        return Ok(());
-                    }
 
-                    // `#[evt(implement_marker_traits(MarkerTrait1, MarkerTrait2))]`
-                    if parse_nested_meta.path.is_ident("implement_marker_traits") {
-                        list.parse_nested_meta(|parse_nested_meta| {
-                            marker_trait_paths.push(parse_nested_meta.path);
-                            Ok(())
-                        })?;
+                    wrap_in_module = Some(Ident::new(&module_name.value(), Span::call_site()));
+                    return Ok(());
+                }
+                // `#[evt(derive(Clone, Debug))]`
+                if nested_meta.path.is_ident("derive") {
+                    let mut items = Vec::new();
+                    nested_meta.parse_nested_meta(|parse_nested_meta| {
+                        items.push(parse_nested_meta.path);
+                        Ok(())
+                    })?;
 
-                        return Ok(());
-                    }
+                    derive_for_all_variants = Some(parse_quote! {
+                        #[derive( #(#items),* )]
+                    });
+                    return Ok(());
+                }
 
-                    panic!(
-                        "Unexpected usage of `evt` attribute, please see  examples at:\n\
-                        <https://docs.rs/enum_variant_type/>"
-                    )
-                })
-                .unwrap_or_else(|e| {
-                    panic!("Failed to process evt attribute. Error: {}", e);
-                });
-            } else {
+                // `#[evt(implement_marker_traits(MarkerTrait1, MarkerTrait2))]`
+                if nested_meta.path.is_ident("implement_marker_traits") {
+                    nested_meta.parse_nested_meta(|parse_nested_meta| {
+                        marker_trait_paths.push(parse_nested_meta.path);
+                        Ok(())
+                    })?;
+
+                    return Ok(());
+                }
+
                 panic!(
-                    "Unexpected usage of `evt` attribute, please see examples at:\
-                    \n<https://docs.rs/enum_variant_type/>"
+                    "Unexpected usage of `evt` attribute, please see  examples at:\n\
+                        <https://docs.rs/enum_variant_type/>"
                 )
-            }
+            })
+            .unwrap_or_else(|e| {
+                panic!("Failed to process evt attribute. Error: {}", e);
+            });
         }
     }
 
