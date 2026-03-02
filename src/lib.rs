@@ -157,8 +157,8 @@ use proc_macro2::{Ident, Span};
 use proc_macro_roids::{namespace_parameters, FieldsExt};
 use quote::quote;
 use syn::{
-    parse_macro_input, parse_quote, Attribute, Data, DataEnum, DeriveInput, Field, Fields, Lit,
-    Meta, NestedMeta, Path,
+    parse_macro_input, parse_quote, Attribute, Data, DataEnum, DeriveInput, Field, Fields, LitStr,
+    Meta, Path,
 };
 
 /// Attributes that should be copied across.
@@ -190,63 +190,73 @@ fn enum_variant_type_impl(ast: DeriveInput) -> proc_macro2::TokenStream {
     let mut repr_c = false;
 
     for attr in ast.attrs.iter() {
-        if attr.path.is_ident("repr") {
+        if attr.path().is_ident("repr") {
             // wrap each enum struct in "repr(C)" ?
-            if let Ok(Meta::List(list)) = attr.parse_meta() {
-                for item in list.nested.iter() {
-                    if let NestedMeta::Meta(Meta::Path(Path { segments, .. })) = item {
-                        segments.iter().for_each(|x| match x {
-                            syn::PathSegment { ident, .. } if *ident == "C" => {
-                                repr_c = true;
-                            }
-                            _ => {}
-                        });
+            if let Meta::List(list) = &attr.meta {
+                list.parse_nested_meta(|parse_nested_meta| {
+                    if parse_nested_meta.path.is_ident("C") {
+                        repr_c = true;
                     }
-                }
+                    Ok(())
+                })
+                .unwrap_or_else(|e| panic!("Failed to parse repr attribute. Error: {}", e));
             }
-        } else if attr.path.is_ident("evt") {
-            if let Ok(Meta::List(list)) = attr.parse_meta() {
-                for item in list.nested.iter() {
-                    match item {
-                        NestedMeta::Meta(Meta::NameValue(name_value)) => {
-                            if let (true, Lit::Str(lit_str)) =
-                                (name_value.path.is_ident("module"), &name_value.lit)
-                            {
-                                wrap_in_module =
-                                    Some(Ident::new(&lit_str.value(), Span::call_site()));
-                            } else {
-                                panic!("Expected `evt` attribute argument in the form: `#[evt(module = \"some_module_name\")]`");
-                            }
-                        }
-                        NestedMeta::Meta(Meta::List(list)) => {
-                            if list.path.is_ident("derive") {
-                                let items = list.nested.iter().map(|nested_meta| {
-                                    if let NestedMeta::Meta(Meta::Path(path)) = nested_meta {
-                                        path.clone()
-                                    } else {
-                                        panic!("Expected `evt` attribute argument in the form: `#[evt(derive(Clone, Debug))]`");
-                                    }
-                                });
-                                derive_for_all_variants = Some(parse_quote! {
-                                    #[derive( #(#items),* )]
-                                });
-                            } else if list.path.is_ident("implement_marker_traits") {
-                                marker_trait_paths = list.nested
-                                    .iter()
-                                    .map(|nested| if let NestedMeta::Meta(Meta::Path(path)) = nested {
-                                        path.clone()
-                                } else {
-                                    panic!("Expected `evt` attribute argument in the form #[evt(implement_marker_traits(MarkerTrait1, MarkerTrait2))]");
-                                }).collect();
-                            }
-                        }
-                        _ => {
-                            panic!("Unexpected usage of `evt` attribute, please see examples at:\n<https://docs.rs/enum_variant_type/>")
-                        }
+        } else if attr.path().is_ident("evt") {
+            if let Meta::List(list) = &attr.meta {
+                list.parse_nested_meta(|parse_nested_meta| {
+                    if parse_nested_meta.path.is_ident("module") {
+                        // `#[evt(module = \"some_module_name\")]`
+                        let module_name: LitStr = parse_nested_meta
+                            .value()
+                            .and_then(|value| value.parse())
+                            .unwrap_or_else(|e| {
+                                panic!(
+                                    "Expected `evt` attribute argument in the form: \
+                                    `#[evt(module = \"some_module_name\")]`. Error: {}",
+                                    e
+                                )
+                            });
+
+                        wrap_in_module = Some(Ident::new(&module_name.value(), Span::call_site()));
+                        return Ok(());
                     }
-                }
+                    // `#[evt(derive(Clone, Debug))]`
+                    if parse_nested_meta.path.is_ident("derive") {
+                        let mut items = Vec::new();
+                        list.parse_nested_meta(|parse_nested_meta| {
+                            items.push(parse_nested_meta.path);
+                            Ok(())
+                        })?;
+
+                        derive_for_all_variants = Some(parse_quote! {
+                            #[derive( #(#items),* )]
+                        });
+                        return Ok(());
+                    }
+
+                    // `#[evt(implement_marker_traits(MarkerTrait1, MarkerTrait2))]`
+                    if parse_nested_meta.path.is_ident("implement_marker_traits") {
+                        list.parse_nested_meta(|parse_nested_meta| {
+                            marker_trait_paths.push(parse_nested_meta.path);
+                            Ok(())
+                        })?;
+
+                        return Ok(());
+                    }
+
+                    panic!(
+                        "Unexpected usage of `evt` attribute, please see  examples at:\n\
+                        <https://docs.rs/enum_variant_type/>"
+                    )
+                })
+                .unwrap_or_else(|e| {
+                    panic!("Failed to process evt attribute. Error: {}", e);
+                });
             } else {
-                panic!("Unexpected usage of `evt` attribute, please see examples at:\n<https://docs.rs/enum_variant_type/>")
+                panic!(
+                    "Unexpected usage of `evt` attribute, please see examples at:\
+                    \n<https://docs.rs/enum_variant_type/>"
+                )
             }
         }
     }
@@ -266,7 +276,7 @@ fn enum_variant_type_impl(ast: DeriveInput) -> proc_macro2::TokenStream {
             .filter(|attribute| {
                 ATTRIBUTES_TO_COPY
                     .iter()
-                    .any(|attr_to_copy| attribute.path.is_ident(attr_to_copy))
+                    .any(|attr_to_copy| attribute.path().is_ident(attr_to_copy))
             })
             .collect::<Vec<&Attribute>>();
 
