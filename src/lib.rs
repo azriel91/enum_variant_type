@@ -81,6 +81,7 @@
 //!
 //! impl TryFrom<MyEnum> for Unit {
 //!     type Error = MyEnum;
+//!
 //!     fn try_from(enum_variant: MyEnum) -> Result<Self, Self::Error> {
 //!         if let MyEnum::Unit = enum_variant {
 //!             Ok(Unit)
@@ -99,6 +100,7 @@
 //!
 //! impl TryFrom<MyEnum> for Tuple {
 //!     type Error = MyEnum;
+//!
 //!     fn try_from(enum_variant: MyEnum) -> Result<Self, Self::Error> {
 //!         if let MyEnum::Tuple(_0, _1) = enum_variant {
 //!             Ok(Tuple(_0, _1))
@@ -117,6 +119,7 @@
 //!
 //! impl TryFrom<MyEnum> for Struct {
 //!     type Error = MyEnum;
+//!
 //!     fn try_from(enum_variant: MyEnum) -> Result<Self, Self::Error> {
 //!         if let MyEnum::Struct { field_0, field_1 } = enum_variant {
 //!             Ok(Struct { field_0, field_1 })
@@ -144,9 +147,12 @@
 //!
 //! ### Additional options specified by an `evt` attribute on enum:
 //!
-//! * `#[evt(derive(Clone, Copy))]`: Derives `Clone`, `Copy` on **every** variant.
-//! * `#[evt(module = "module1")]`: Generated structs are placed into `mod module1 { ... }`.
-//! * `#[evt(implement_marker_traits(MarkerTrait1))]`: Generated structs all `impl MarkerTrait1`.
+//! * `#[evt(derive(Clone, Copy))]`: Derives `Clone`, `Copy` on **every**
+//!   variant.
+//! * `#[evt(module = "module1")]`: Generated structs are placed into `mod
+//!   module1 { ... }`.
+//! * `#[evt(implement_marker_traits(MarkerTrait1))]`: Generated structs all
+//!   `impl MarkerTrait1`.
 
 extern crate alloc;
 extern crate proc_macro;
